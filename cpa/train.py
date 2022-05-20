@@ -7,7 +7,10 @@ import time
 from collections import defaultdict
 
 import numpy as np
+import pandas as pd
+import scanpy as sc
 import torch
+import cpa
 from cpa.data import load_dataset_splits
 from cpa.model import CPA, MLP
 from sklearn.metrics import r2_score
@@ -364,6 +367,33 @@ def train_cpa(args, return_model=False):
         return autoencoder, datasets
 
 
+def train_cpa_api(args, state_dict=None):
+    adata = sc.read(args['data'])
+    if state_dict is None:
+        cpa_api = cpa.api.API(
+            adata, 
+            perturbation_key='condition',
+            doser_type='logsigm',
+            split_key='split',
+            covariate_keys=[],
+            only_parameters=False,
+            hparams={}, 
+        )
+    else:
+        cpa_api = cpa.api.API(
+            adata, 
+            pretrained=state_dict
+        )
+
+    cpa_api.train(
+        max_epochs=args['max_epochs'], 
+        run_eval=True, 
+        checkpoint_freq=args['checkpoint_freq'],
+        filename=None, 
+        max_minutes=args['max_minutes']
+    )
+
+
 def parse_arguments():
     """
     Read arguments if this script is called from a terminal.
@@ -399,4 +429,4 @@ def parse_arguments():
 
 
 if __name__ == "__main__":
-    train_cpa(parse_arguments())
+    train_cpa_api(parse_arguments())
