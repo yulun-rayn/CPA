@@ -14,11 +14,72 @@ from torch.distributions import (
     NegativeBinomial,
     Normal
 )
-from cpa.train import evaluate, prepare_cpa
+from data import Dataset
+from cpa.model import CPA, MLP
+from cpa.train import evaluate
 from cpa.helper import _convert_mean_disp_to_counts_logits
 from sklearn.metrics import r2_score
 from sklearn.metrics.pairwise import cosine_distances, euclidean_distances
 from tqdm import tqdm
+
+def load_dataset_splits(
+    data: str,
+    perturbation_key: Union[str, None],
+    dose_key: Union[str, None],
+    covariate_keys: Union[list, str, None],
+    split_key: str,
+    control: Union[str, None],
+    return_dataset: bool = False,
+):
+
+    dataset = Dataset(
+        data, perturbation_key, dose_key, covariate_keys, split_key, control
+    )
+
+    splits = {
+        "training": dataset.subset("train", "all"),
+        "test": dataset.subset("test", "all"),
+        "ood": dataset.subset("ood", "all"),
+    }
+
+    if return_dataset:
+        return splits, dataset
+    else:
+        return splits
+
+def prepare_cpa(args, state_dict=None):
+    """
+    Instantiates autoencoder and dataset to run an experiment.
+    """
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    datasets = load_dataset_splits(
+        args["data"],
+        args["perturbation_key"],
+        args["dose_key"],
+        args["covariate_keys"],
+        args["split_key"],
+        args["control"],
+    )
+
+    autoencoder = CPA(
+        datasets["training"].num_genes,
+        datasets["training"].num_drugs,
+        datasets["training"].num_covariates,
+        device=device,
+        seed=args["seed"],
+        loss_ae=args["loss_ae"],
+        doser_type=args["doser_type"],
+        patience=args["patience"],
+        hparams=args["hparams"],
+        decoder_activation=args["decoder_activation"],
+    )
+    if state_dict is not None:
+        autoencoder.load_state_dict(state_dict)
+
+    return autoencoder, datasets
+
 
 class API:
     """
@@ -201,7 +262,7 @@ class API:
             Full path to the pretrained model.
         """
         print(f"Loaded pretrained model from:\t{pretrained}")
-        state, self.used_args, self.history = torch.load(
+        state_dict, self.used_args, self.history = torch.load(
             pretrained, map_location=torch.device(self.args["device"])
         )
         self.model.load_state_dict(state_dict)
@@ -218,7 +279,7 @@ class API:
             Full path to the pretrained model.
         """  # TODO fix compatibility
         print(f"Loaded pretrained model from:\t{pretrained}")
-        state, self.used_args, self.history = torch.load(
+        state_dict, self.used_args, self.history = torch.load(
             pretrained, map_location=torch.device(self.args["device"])
         )
         self.model.load_state_dict(state_dict)

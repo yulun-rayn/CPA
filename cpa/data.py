@@ -350,28 +350,3 @@ class SubDataset:
     def __len__(self):
         return len(self.genes)
 
-
-def load_dataset_splits(
-    data: str,
-    perturbation_key: Union[str, None],
-    dose_key: Union[str, None],
-    covariate_keys: Union[list, str, None],
-    split_key: str,
-    control: Union[str, None],
-    return_dataset: bool = False,
-):
-
-    dataset = Dataset(
-        data, perturbation_key, dose_key, covariate_keys, split_key, control
-    )
-
-    splits = {
-        "training": dataset.subset("train", "all"),
-        "test": dataset.subset("test", "all"),
-        "ood": dataset.subset("ood", "all"),
-    }
-
-    if return_dataset:
-        return splits, dataset
-    else:
-        return splits

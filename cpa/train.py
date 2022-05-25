@@ -10,8 +10,7 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 import torch
-import cpa
-from cpa.data import load_dataset_splits
+from api import API, prepare_cpa
 from cpa.model import CPA, MLP
 from sklearn.metrics import r2_score
 from torch.autograd import Variable
@@ -242,40 +241,6 @@ def evaluate(autoencoder, datasets):
     autoencoder.train()
     return evaluation_stats
 
-def prepare_cpa(args, state_dict=None):
-    """
-    Instantiates autoencoder and dataset to run an experiment.
-    """
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    datasets = load_dataset_splits(
-        args["data"],
-        args["perturbation_key"],
-        args["dose_key"],
-        args["covariate_keys"],
-        args["split_key"],
-        args["control"],
-    )
-
-    autoencoder = CPA(
-        datasets["training"].num_genes,
-        datasets["training"].num_drugs,
-        datasets["training"].num_covariates,
-        device=device,
-        seed=args["seed"],
-        loss_ae=args["loss_ae"],
-        doser_type=args["doser_type"],
-        patience=args["patience"],
-        hparams=args["hparams"],
-        decoder_activation=args["decoder_activation"],
-    )
-    if state_dict is not None:
-        autoencoder.load_state_dict(state_dict)
-
-    return autoencoder, datasets
-
-
 def train_cpa(args, return_model=False):
     """
     Trains a CPA autoencoder
@@ -370,7 +335,7 @@ def train_cpa(args, return_model=False):
 def train_cpa_api(args, state_dict=None):
     adata = sc.read(args['data'])
     if state_dict is None:
-        cpa_api = cpa.api.API(
+        cpa_api = API(
             adata, 
             perturbation_key='condition',
             doser_type='logsigm',
@@ -380,7 +345,7 @@ def train_cpa_api(args, state_dict=None):
             hparams={}, 
         )
     else:
-        cpa_api = cpa.api.API(
+        cpa_api = API(
             adata, 
             pretrained=state_dict
         )
@@ -405,7 +370,7 @@ def parse_arguments():
     parser.add_argument("--perturbation_key", type=str, default="condition")
     parser.add_argument("--control", type=str, default=None)
     parser.add_argument("--dose_key", type=str, default="dose_val")
-    parser.add_argument("--covariate_keys", nargs="*", type=str, default="cell_type")
+    parser.add_argument("--covariate_keys", nargs="*", type=str, default=["cell_type"])
     parser.add_argument("--split_key", type=str, default="split")
     parser.add_argument("--loss_ae", type=str, default="gauss")
     parser.add_argument("--doser_type", type=str, default="sigm")
@@ -429,4 +394,5 @@ def parse_arguments():
 
 
 if __name__ == "__main__":
-    train_cpa_api(parse_arguments())
+    train_cpa(parse_arguments())
+    #train_cpa_api(parse_arguments())
