@@ -4,8 +4,9 @@ __pycache__
 *.ipynb_checkpoints/
 *.pt
 
-.vscode
 .DS_Store
-dist/
+.vscode/
 build/
 datasets/
+dist/
+log/
